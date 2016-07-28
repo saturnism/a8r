@@ -1,4 +1,5 @@
-###############################################################################
+#!/bin/sh
+#*******************************************************************************
 # Copyright 2015 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-###############################################################################
+#*******************************************************************************
 
-id: a8r
-kind: Service
-apiVersion: v1beta1
-port: 8080
-containerPort: 8080
-selector:
-  name: a8r-pod
+export URL=http://$1/a8r/autoscaler
+export NOW=`date '+%FT%T%z'`
+curl -XPOST -H"Content-Type: application/json" -d @- $URL << EOF
+{
+  "replicationControllerId": "infinispan-controller",
+  "metricName": "count",
+  "threshold": 100,
+  "duration": 10000,
+  "minReplicas": 2,
+  "maxReplicas": 10
+}
+EOF

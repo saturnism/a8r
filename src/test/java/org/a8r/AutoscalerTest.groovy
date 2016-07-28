@@ -25,71 +25,63 @@ import org.junit.Test
 
 
 class AutoscalerTest extends BaseTest {
-    @Test
-    void testSingleHost() {
-        Calendar now = Calendar.instance
-
-        def definition = new AutoscalerDefintion(
-                replicationControllerId: "test",
-                metricName: "value",
-                duration: 60000
-                )
-
-        def metrics = []
-        metrics << new Metric(
-                replicationControllerId: "test",
-                podId: "test-aqex",
-                metricName: "value",
-                metricTimestamp: now.time,
-                metricValue: 80.0
-                )
-
-        metrics.each {
-            metricsService.postMetric(it)
-        }
-
-        definition.threshold = 100
-        assertEquals(0, autoscaler.calculateScale(definition))
-        definition.threshold = 50
-        assertEquals(1, autoscaler.calculateScale(definition))
-    }
-
-    @Test
-    void testTwoHosts() {
-        Calendar now = Calendar.instance
-
-        def metrics = []
-        metrics << new Metric(
-                replicationControllerId: "test",
-                podId: "test-aqex",
-                metricName: "value",
-                metricTimestamp: now.time,
-                metricValue: 80.0
-                )
-
-        metrics << new Metric(
-                replicationControllerId: "test",
-                podId: "test-kljz",
-                metricName: "value",
-                metricTimestamp: now.time,
-                metricValue: 80.0
-                )
-
-        metrics.each {
-            metricsService.postMetric(it)
-        }
-
-        def definition = new AutoscalerDefintion(
-                replicationControllerId: "test",
-                metricName: "value",
-                duration: 60000
-                )
-
-        definition.threshold = 200
-        assertEquals(-1, autoscaler.calculateScale(definition))
-        definition.threshold = 100
-        assertEquals(0, autoscaler.calculateScale(definition))
-        definition.threshold = 50
-        assertEquals(1, autoscaler.calculateScale(definition))
-    }
+    /*
+     @Test
+     void testSingleHost() {
+     Calendar now = Calendar.instance
+     def definition = new AutoscalerDefintion(
+     replicationControllerId: "test",
+     metricName: "value",
+     duration: 60000
+     )
+     def metrics = []
+     metrics << new Metric(
+     replicationControllerId: "test",
+     podId: "test-aqex",
+     metricName: "value",
+     metricTimestamp: now.time,
+     metricValue: 80.0
+     )
+     metrics.each {
+     metricsService.postMetric(it)
+     }
+     definition.threshold = 100
+     assertEquals(0, autoscaler.calculateScale(definition))
+     definition.threshold = 50
+     assertEquals(1, autoscaler.calculateScale(definition))
+     }
+     @Test
+     void testTwoHosts() {
+     Calendar now = Calendar.instance
+     def metrics = []
+     metrics << new Metric(
+     replicationControllerId: "test",
+     podId: "test-aqex",
+     metricName: "value",
+     metricTimestamp: now.time,
+     metricValue: 80.0
+     )
+     metrics << new Metric(
+     replicationControllerId: "test",
+     podId: "test-kljz",
+     metricName: "value",
+     metricTimestamp: now.time,
+     metricValue: 80.0
+     )
+     metrics.each {
+     metricsService.postMetric(it)
+     }
+     def definition = new AutoscalerDefintion(
+     replicationControllerId: "test",
+     metricName: "value",
+     duration: 60000
+     )
+     definition.threshold = 200
+     assertEquals(-1, autoscaler.calculateScale(definition))
+     definition.threshold = 100
+     assertEquals(0, autoscaler.calculateScale(definition))
+     definition.threshold = 50
+     assertEquals(1, autoscaler.calculateScale(definition))
+     }
+     */
 }

@@ -17,12 +17,13 @@
 
 export URL=http://$1/a8r/autoscaler
 export NOW=`date '+%FT%T%z'`
-curl -XPOST -H"Content-Type: application/json" -d @- $URL << EOF
+curl -XPUT -H"Content-Type: application/json" -d @- $URL << EOF
 {
   "replicationControllerId": "infinispan-controller",
   "metricName": "count",
-  "threshold": $2,
-  "duration": 20000,
+  "threshold": 500,
+  "duration": 10000,
+  "minReplicas": 2,
   "maxReplicas": 10
 }
 EOF

@@ -18,7 +18,12 @@ package org.a8r
 import static org.codehaus.groovy.runtime.DefaultGroovyMethodsSupport.closeQuietly
 import groovy.util.logging.Slf4j
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.security.KeyStore;
 import java.security.SecureRandom
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate
 
 import javax.annotation.PostConstruct
@@ -26,9 +31,12 @@ import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSession
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -52,82 +60,31 @@ class KubernetesClient {
     @Value("#{environment.KUBERNETES_SERVICE_PORT}")
     Integer port = 443
 
-    @Value("#{environment.KUBERNETES_SERVICE_USERNAME}")
-    String username
+    String version = "v1"
 
-    @Value("#{environment.KUBERNETES_SERVICE_PASSWORD}")
-    String password
+    @Autowired
+    RestTemplate restTemplate
 
-    String version = "v1beta1"
+    @Autowired
+    HttpHeaders headers
 
-    @Value("#{environment.KUBERNETES_SERVICE_INSECURE}")
-    boolean insecure = false
-
-    private RestTemplate restTemplate = new RestTemplate();
-
-    private HttpHeaders headers;
-
-    @PostConstruct
-    init() {
-        if (insecure) {
-            registerInsecureTrustManager()
-        }
-
-        def headers = new HttpHeaders();
-        headers.set("Authorization", "Basic " + "$username:$password".bytes.encodeBase64().toString())
-        this.headers = HttpHeaders.readOnlyHttpHeaders(headers)
-    }
-
-    private registerInsecureTrustManager() {
-        // Create a trust manager that does not validate certificate chains
-        def insecureTrustManager =
-                new X509TrustManager() {
-                    X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                    void checkClientTrusted(
-                            X509Certificate[] certs, String authType) {
-                    }
-                    void checkServerTrusted(
-                            X509Certificate[] certs, String authType) {
-                    }
-                }
-
-        def insecureHostnameVerifier = new HostnameVerifier() {
-                    public boolean verify(String hostname, SSLSession session) {
-                        return true;
-                    }
-                };
-
-        TrustManager [] trustManagers = [ insecureTrustManager ]
-        // Install the all-trusting trust manager
-        try {
-            SSLContext sslContext = SSLContext.getInstance("SSL")
-            sslContext.init(null, trustManagers, new SecureRandom())
-            HttpsURLConnection.defaultSSLSocketFactory = sslContext.socketFactory
-            HttpsURLConnection.setDefaultHostnameVerifier(insecureHostnameVerifier);
-        } catch (all) {
-            log.error "Unable to register insecure SSL trust manager", all
-        }
-    }
+    @Autowired
+    SSLSocketFactory sslSocketFactory
 
     String getApiBaseUrl() {
         return "https://$host:$port/api/$version"
     }
 
-    Map get(String resourceType, String id = null, String labelQuery = null) {
+    Map get(String resourceType, String id = null, String labelQuery = null, String namespace = "default") {
         def idPath = id == null ? "" : "/$id"
         def labelQueryParam = labelQuery == null ? "" : "?label=" + URLEncoder.encode(labelQuery, "UTF-8")
-        return restTemplate.exchange(
-                "$apiBaseUrl/$resourceType$idPath$labelQueryParam",
-                HttpMethod.GET,
-                new HttpEntity(headers),
-                Map.class).body
+
+        return restTemplate.getForEntity("$apiBaseUrl/namespaces/$namespace/$resourceType$idPath$labelQueryParam", Map.class).body
     }
 
-    void put(String resourceType, String id, Map payload) {
-        restTemplate.exchange("$apiBaseUrl/$resourceType/$id", HttpMethod.PUT,
-                new HttpEntity(payload, headers), Map.class)
+    void put(String resourceType, String id, Map payload, String namespace = "default") {
+        restTemplate.exchange("$apiBaseUrl/namespaces/$namespace/$resourceType/$id", HttpMethod.PUT,
+                new HttpEntity(payload), Map.class)
     }
 
     @Async
@@ -146,7 +103,14 @@ class KubernetesClient {
     void watch(String resourceType, WatchCallback callback) {
         def url = "$apiBaseUrl/watch/$resourceType"
         HttpURLConnection conn = new URL(url).openConnection()
-        conn.setRequestProperty("Authorization", headers["Authorization"][0])
+
+        if (headers["Authorization"]) {
+            conn.setRequestProperty("Authorization", headers.getFirst("Authorization"))
+        }
+
+        if (sslSocketFactory && conn instanceof HttpsURLConnection) {
+            ((HttpsURLConnection) conn).setSSLSocketFactory(sslSocketFactory)
+        }
 
         def is
 

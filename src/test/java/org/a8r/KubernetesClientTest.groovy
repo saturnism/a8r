@@ -44,11 +44,7 @@ class KubernetesClientTest {
     void setup() {
         client = new KubernetesClient(
                 host: "104.154.58.185",
-                port: "443",
-                username: "admin",
-                password: "F3yJ6E5TyVC127TI",
-                insecure: true)
-        client.init()
+                port: 443)
     }
 
     @After
@@ -57,23 +53,29 @@ class KubernetesClientTest {
 
     @Test
     void testGetReplicationController() {
-        def response = client.get("replicationControllers", "hazelcast")
-        println response
+        /*
+         def response = client.get("replicationControllers", "hazelcast")
+         println response
+         */
     }
 
     @Test
     void testResizeReplicationController() {
-        def rc = client.get("replicationControllers", "hazelcast")
-        rc.desiredState.replicas = 2
-        client.put("replicationControllers", "hazelcast", rc)
+        /*
+         def rc = client.get("replicationControllers", "hazelcast")
+         rc.desiredState.replicas = 2
+         client.put("replicationControllers", "hazelcast", rc)
+         */
     }
 
     @Test
     void testWatchReplicationControllers() {
-        client.watch("pods", new WatchCallback() {
-                    void eventReceived(Map event) {
-                        println event
-                    }
-                })
+        /*
+         client.watch("pods", new WatchCallback() {
+         void eventReceived(Map event) {
+         println event
+         }
+         })
+         */
     }
 }

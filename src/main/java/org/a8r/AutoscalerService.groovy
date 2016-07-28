@@ -71,38 +71,28 @@ class AutoscalerService {
     @Autowired
     private KubernetesClient kubernetesClient
 
-    int calculateScale(AutoscalerDefintion definition) {
+    int calculateScale(AutoscalerDefintion definition, Map rc) {
         def stat = metricsService.getMetricStat(definition.replicationControllerId,
                 definition.metricName, definition.duration)
+        def target = Math.ceil((stat.average * stat.count) / definition.threshold)
 
-        log.info "stat: {}", stat.properties
+        def desired = rc.spec.replicas
+        def current = rc.status.replicas
 
-        if (stat.hosts > 0 && stat.average > definition.threshold && stat.hosts < definition.maxReplicas) return 1
-        if (stat.hosts > definition.minReplicas && stat.average * stat.count / (stat.hosts - 1) < definition.threshold) return -1
-        return 0
-    }
+        def ratio = stat.average / definition.threshold
+        def doScale = ratio < 0.9 || ratio > 1.1
 
-    int calculateScale(AutoscalerDefintion definition, Map rc) {
-        def desired = rc.desiredState.replicas
-        def current = rc.currentState.replicas
+        if (doScale && target < desired) {
+            doScale = stat.average * stat.count / (stat.hosts - 1) < definition.threshold
+        }
 
-        def result = calculateScale(definition)
+        if (doScale) {
+            if (target < definition.minReplicas) target = definition.minReplicas
+            if (definition.maxReplicas && target > definition.maxReplicas) target = definition.maxReplicas
 
-        if (result == 0) {
-            return 0
-        } else if (result > 0) {
-            // TODO: account for differences
-            if (desired > current) {
-                return 0
-            } else {
-                return result
-            }
-        } else if (result < 0) {
-            if (desired < current) {
-                return 0
-            } else {
-                return result
-            }
+            return target
+        } else {
+            return rc.spec.replicas
         }
     }
 
@@ -116,6 +106,7 @@ class AutoscalerService {
         def map = definition.properties
         map.remove("class")
         autoscalerCache.put(fqn, map)
+        log.info "Created autoscaler for $fqn, {}", definition
         return definition.replicationControllerId
     }
 
@@ -129,6 +120,7 @@ class AutoscalerService {
         def map = definition.properties
         map.remove("class")
         autoscalerCache.put(fqn, map)
+        log.info "Updated autoscaler for $fqn, {}", definition
         return definition.replicationControllerId
     }
 
@@ -151,6 +143,7 @@ class AutoscalerService {
 
         def definition = autoscalerCache.getNode(fqn).data as AutoscalerDefintion
         autoscalerCache.removeNode(fqn)
+        log.info "Deleted autoscaler for $fqn"
         return definition
     }
 
@@ -164,18 +157,63 @@ class AutoscalerService {
     @Async
     void scale(AutoscalerDefintion definition) {
         try {
-            def rc = kubernetesClient.get("replicationControllers", definition.replicationControllerId)
-            def result = calculateScale(definition, rc)
-            log.info "Autoscaling: {}, Result: {}", definition.properties, result
+            def rc = kubernetesClient.get("replicationcontrollers", definition.replicationControllerId)
+            def target = calculateScale(definition, rc)
+            log.info "Autoscaling: {}, Current: {}, Target: {}", definition.properties, rc.spec.replicas, target
 
-            rc.desiredState.replicas += result
-            kubernetesClient.put("replicationControllers", rc.id, rc)
+            if (target == rc.spec.replicas) {
+                log.info "Don't need to scale {}", definition.replicationControllerId
+            } else if (target > rc.spec.replicas) {
+                log.info "Scaling {} from {} to {}", definition.replicationControllerId, rc.spec.replicas, target
+                rc.spec.replicas = target
+                kubernetesClient.put("replicationcontrollers", rc.metadata.name, rc)
+            } else if (target < rc.spec.replicas ) {
+                log.info "Scaling {} from {} to {}", definition.replicationControllerId, rc.spec.replicas, target
+                rc.spec.replicas--
+                kubernetesClient.put("replicationcontrollers", rc.metadata.name, rc)
+            }
         } catch (HttpClientErrorException e) {
             if (e.statusCode == HttpStatus.NOT_FOUND) {
-                log.warn "{} was not found in Kubernetes ", definition.replicationControllerId
+                log.warn "{} was not found in Kubernetes", definition.replicationControllerId
             } else {
                 log.error "Unknown error occured", e
             }
         }
     }
+
+    /*
+     int calculateScale(AutoscalerDefintion definition) {
+     def stat = metricsService.getMetricStat(definition.replicationControllerId,
+     definition.metricName, definition.duration)
+     log.info "stat: {}", stat.properties
+     log.info "hosts: {}, avg: {}, th: {}, max: {}", stat.hosts, stat.average, definition.threshold, definition.maxReplicas
+     if (stat.hosts > 0 && stat.average > definition.threshold) return 1
+     if (stat.hosts > definition.minReplicas && stat.average * stat.count / (stat.hosts - 1) < definition.threshold) return -1
+     return 0
+     }
+     */
+    /*
+     @Async
+     void scale(AutoscalerDefintion definition) {
+     try {
+     def rc = kubernetesClient.get("replicationcontrollers", definition.replicationControllerId)
+     def result = calculateScale(definition, rc)
+     log.info "Autoscaling: {}, Result: {}", definition.properties, result
+     if (result != 0) {
+     def from = rc.spec.replicas
+     rc.spec.replicas += result
+     log.info "Scaling {} from {} to {}", definition.replicationControllerId, from, rc.spec.replicas
+     kubernetesClient.put("replicationcontrollers", rc.metadata.name, rc)
+     } else {
+     log.info "Don't need to scale {}", definition.replicationControllerId
+     }
+     } catch (HttpClientErrorException e) {
+     if (e.statusCode == HttpStatus.NOT_FOUND) {
+     log.warn "{} was not found in Kubernetes", definition.replicationControllerId
+     } else {
+     log.error "Unknown error occured", e
+     }
+     }
+     }
+     */
 }

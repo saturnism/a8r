@@ -59,8 +59,6 @@ class Metric {
 
     @NotNull
     Date metricTimestamp
-
-    Boolean processed = false
 }
 
 @RestController
@@ -80,14 +78,19 @@ class MetricsService {
     void init() {
         client.watchContinuously("pods", 2000, new WatchCallback() {
                     void eventReceived(Map event) {
+                        if (event.object.kind != 'Pod') return;
+
+                        log.info "Event: {}, Object: {}", event.type, event.object
+
                         switch (event.type) {
                             case "DELETED":
                                 def pod = event.object
-                                if (!pod.generateName) {
+                                if (!pod.metadata.generateName) {
                                     break;
                                 }
-                                def replicationControllerId = pod.generateName[0..-2]
-                                def fqn = new Fqn(replicationControllerId, pod.id)
+
+                                def replicationControllerId = pod.metadata.generateName[0..-2]
+                                def fqn = new Fqn(replicationControllerId, pod.metadata.name)
                                 if (!metricsCache.exists(fqn)) {
                                     break;
                                 }
@@ -111,7 +114,7 @@ class MetricsService {
         def map = metric.properties
         map.remove("class")
         metricsCache.put(fqn, map)
-        log.info "{} {}", fqn, map
+        log.info "Posted Metric: {} {}", fqn, map
         return fqn
     }
 
@@ -125,7 +128,7 @@ class MetricsService {
         Calendar past = Calendar.instance
         past.add(Calendar.MILLISECOND, -duration)
 
-        def fqn = Fqn.fromElements(replicationControllerId, metricName)
+        def fqn = new Fqn(replicationControllerId, metricName)
         if (!metricsCache.exists(fqn)) return new MetricStat()
 
         def metric = metricsCache.getNode(fqn)
@@ -145,10 +148,14 @@ class MetricsService {
             it.children.each {
                 Metric m = it.data
 
-                if (m.metricTimestamp.before(past.time) || m.metricTimestamp.after(now.time)) { return }
-                if (m.processed) { return }
+                if (!m.metricTimestamp) {
+                    return
+                }
 
-                it.put("processed", true)
+                if (m.metricTimestamp.before(past.time) || m.metricTimestamp.after(now.time)) { return }
+
+                //if (m.processed) { return }
+                //it.put("processed", true)
 
                 min = !minSet ? m.metricValue : Math.min(min, m.metricValue)
                 max = !maxSet ? m.metricValue : Math.max(max, m.metricValue)
@@ -163,6 +170,8 @@ class MetricsService {
             totalCount += count
             totalSum += sum
         }
+
+        log.info "fqn: {}, count: {}", fqn, totalCount
 
         if (totalCount == 0) return new MetricStat()
 

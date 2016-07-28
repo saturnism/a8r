@@ -15,36 +15,26 @@
 ###############################################################################
 
 kind: ReplicationController
-apiVersion: v1beta1
-id: a8r-controller
-desiredState:
-  labels:
-    name: a8r-controller
+apiVersion: v1
+metadata:
+  name: a8r-controller
+spec:
   replicas: 1
-  replicaSelector:
-    name: a8r-pod
-  podTemplate:
-    labels:
-      name: a8r-pod
-    desiredState:
-      manifest:
-        version: v1beta1
-        id: a8r
-        labels:
-          name: a8r
-        containers:
-         - name: a8r
-           image: gcr.io/intense_pointer_860/a8r
-           imagePullPolicy: PullAlways
-           env:
-            - name: KUBERNETES_SERVICE_HOST
-              value: "146.148.90.82"
-            - name: KUBERNETES_SERVICE_USERNAME
-              value: "admin"
-            - name: KUBERNETES_SERVICE_PASSWORD
-              value: "mf7gXc2u9c1iYTEF"
-            - name: KUBERNETES_SERVICE_INSECURE
-              value: "true"
-           ports:
-            - name: api
-              containerPort: 8080
+  selector:
+    name: a8r
+  template:
+    metadata:
+      labels:
+        name: a8r
+    spec:
+      containers:
+       - name: a8r
+         image: gcr.io/wise-coyote-827/a8r:latest
+         env:
+          - name: KUBERNETES_TOKEN_FILE
+            value: /var/run/secrets/kubernetes.io/serviceaccount/token
+          - name: KUBERNETES_CA_CERT_FILE
+            value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+         ports:
+          - name: api
+            containerPort: 8080

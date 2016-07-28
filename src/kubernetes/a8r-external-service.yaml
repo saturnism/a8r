@@ -14,11 +14,16 @@
 # limitations under the License.
 ###############################################################################
 
-id: a8r-external
 kind: Service
-apiVersion: v1beta1
-port: 80
-containerPort: 8080
-createExternalLoadBalancer: true
-selector:
-  name: a8r-pod
+apiVersion: v1
+metadata:
+  name: a8r
+  labels:
+    name: a8r
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: api
+  selector:
+    name: a8r

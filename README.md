@@ -13,6 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
+
 a8r - An example Kubernetes Autoscaler
 ======================================
 a8r is an autoscaler example for Kubernetes.  It has 2 components:
