@@ -20,4 +20,7 @@ a8r is an autoscaler example for Kubernetes.  It has 2 components:
  * Metrics service - for metrics agents to push metrics to
  * Autoscaler service - manage autoscaler configuration, and determines/applies autoscaling needs
  
+[Slides](https://speakerdeck.com/saturnism/springone-2gx-writing-a-kubernetes-autoscaler-how-to)
+[Video](https://www.youtube.com/watch?v=TgrVPMYmvqI)
+ 
 This is not an official Google product. 
