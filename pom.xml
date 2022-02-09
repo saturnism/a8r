@@ -37,7 +37,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <start-class>org.a8r.Application</start-class>
     <java.version>1.7</java.version>
-    <infinispan.version>7.1.1.Final</infinispan.version>
+    <infinispan.version>11.0.6.Final</infinispan.version>
   </properties>
 
   <dependencies>
